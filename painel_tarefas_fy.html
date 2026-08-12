@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Painel de Atendimento — TifySoluções</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ── TOKENS ── */
+:root{
+  --bg:#0a0a0a;--bg2:#151312;--bg3:#201c19;
+  --accent:#F47B20;--accent2:#ffb35c;
+  --accent-grad:linear-gradient(135deg,#F47B20,#ff9d40);
+  --accent-dim:rgba(244,123,32,.14);
+  --warn:#F47B20;--warn-dim:rgba(244,123,32,.14);
+  --danger:#e5484d;--danger-dim:rgba(229,72,77,.14);
+  --ok:#3ddc84;--ok-dim:rgba(61,220,132,.14);
+  --info:#4d9fff;--info-dim:rgba(77,159,255,.14);
+  --online:#3ddc84;--offline:#5c5652;
+  --text:#ffffff;--muted:#948d86;--border:rgba(244,123,32,.14);
+  --r:14px;
+  --shadow-soft:0 2px 10px rgba(0,0,0,.35);
+  --shadow-glow:0 8px 30px rgba(244,123,32,.16);
+}
+[data-theme="light"]{
+  --bg:#fdfaf7;--bg2:#ffffff;--bg3:#f6ede4;
+  --text:#1a1512;--muted:#8a7d72;--border:rgba(244,123,32,.22);
+  --shadow-soft:0 2px 10px rgba(120,80,30,.08);
+  --shadow-glow:0 8px 30px rgba(244,123,32,.14);
+}
+
+body{
+  background:
+    radial-gradient(circle at 8% -5%, rgba(244,123,32,.10), transparent 42%),
+    radial-gradient(circle at 100% 10%, rgba(244,123,32,.06), transparent 38%),
+    var(--bg);
+  color:var(--text);font-family:'Inter',sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;min-height:100vh;transition:background .2s,color .2s
+}
+
+/* ── FIREBASE STATUS BANNER ── */
+#fbBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:200;background:#e5484d;color:#fff;text-align:center;padding:9px 14px;font-size:13px;font-weight:600}
+#fbBanner a{color:#fff;text-decoration:underline}
+
+/* ── LOGIN ── */
+#loginScreen{
+  position:fixed;inset:0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(244,123,32,.16), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(244,123,32,.10), transparent 40%),
+    var(--bg);
+  z-index:100;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.login-box{
+  background:var(--bg2);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:18px;
+  padding:38px 34px;width:100%;max-width:370px;
+  box-shadow:0 20px 60px rgba(0,0,0,.5),var(--shadow-glow);
+}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo .badge{
+  width:56px;height:56px;border-radius:16px;margin:0 auto 14px;
+  background:var(--accent-grad);display:flex;align-items:center;justify-content:center;
+  font-size:26px;box-shadow:0 8px 24px rgba(244,123,32,.4);
+}
+.login-logo h2{font-size:20px;font-weight:800;margin-bottom:4px;letter-spacing:-.01em}
+.login-logo p{font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.login-err{display:none;background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.35);color:#f3a1a3;font-size:13px;padding:9px 13px;border-radius:8px;margin-bottom:14px}
+.lfield{margin-bottom:14px}
+.lfield label{display:block;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
+.lfield input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:11px 13px;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s,box-shadow .15s}
+.lfield input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.lfield input::placeholder{color:var(--muted)}
+.btn-login{width:100%;background:var(--accent-grad);color:#1a0f04;border:none;border-radius:9px;padding:12px;font-weight:800;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;transition:filter .15s,transform .05s;margin-top:6px;box-shadow:0 6px 20px rgba(244,123,32,.35)}
+.btn-login:hover{filter:brightness(1.06)}
+.btn-login:active{transform:scale(.98)}
+.btn-login:disabled{opacity:.6;cursor:default}
+.login-hint{margin-top:16px;text-align:center;font-size:11px;color:var(--muted)}
+
+/* ── APP ── */
+.app{max-width:1180px;margin:0 auto;padding:28px 18px 60px}
+.topbar{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border);padding-bottom:18px;margin-bottom:20px}
+.eyebrow{display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:5px}
+h1{font-size:27px;font-weight:800;letter-spacing:-.01em}
+.clock-area{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.clock{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:var(--muted)}
+.sync-note{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;justify-content:flex-end}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.sync-dot.off{background:var(--danger)}
+.header-btns{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.user-tag{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:800;padding:5px 11px;border-radius:20px;letter-spacing:.06em;text-transform:uppercase}
+.role-tag{font-size:9px;font-weight:800;padding:5px 9px;border-radius:20px;letter-spacing:.08em;text-transform:uppercase;background:var(--info-dim);color:var(--info);border:1px solid var(--info)}
+.role-tag.sup{background:var(--ok-dim);color:var(--ok);border-color:var(--ok)}
+.btn-hdr{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:6px 10px;cursor:pointer;font-size:14px;transition:all .15s;line-height:1}
+.btn-hdr:hover{color:var(--text);border-color:var(--accent);background:var(--accent-dim)}
+.btn-hdr.has-badge{position:relative}
+.hdr-badge{position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;font-size:9px;font-weight:800;border-radius:10px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;position:relative}
+.tab-btn:hover{color:var(--text);border-color:var(--accent)}
+.tab-btn.active{background:var(--accent-grad);color:#1a0f04;border-color:transparent;box-shadow:0 4px 14px rgba(244,123,32,.3)}
+.tab-btn .tbadge{background:var(--danger);color:#fff;font-size:10px;font-weight:800;border-radius:10px;padding:1px 6px;margin-left:6px}
+
+.summary-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow-soft)}
+.stat-label{font-size:12px;color:var(--muted);margin-bottom:5px}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;color:var(--accent)}
+
+/* ── EQUIPE ONLINE ── */
+.panel-team{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:20px;box-shadow:var(--shadow-soft)}
+.panel-team .panel-head h2{font-size:15px}
+.team-subhead{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 8px}
+.team-subhead:first-child{margin-top:0}
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.team-card{background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:12px 14px;transition:border-color .2s}
+.team-card.online{border-color:rgba(61,220,132,.4)}
+.team-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.team-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.dot-online{background:var(--online);box-shadow:0 0 0 3px rgba(61,220,132,.18);animation:pulseGreen 1.8s infinite}
+.dot-offline{background:var(--offline)}
+@keyframes pulseGreen{0%{box-shadow:0 0 0 0 rgba(61,220,132,.5)}70%{box-shadow:0 0 0 6px rgba(61,220,132,0)}100%{box-shadow:0 0 0 0 rgba(61,220,132,0)}}
+.team-name{font-weight:700;font-size:13.5px;text-transform:capitalize}
+.team-name em{color:var(--accent);font-style:normal;font-size:11px;font-weight:600}
+.team-status{font-size:12px;color:var(--muted);line-height:1.4}
+.team-card.online .team-status{color:var(--text)}
+
+.add-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;box-shadow:var(--shadow-soft)}
+.add-panel input{flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 14px;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s,box-shadow .15s}
+.add-panel input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.add-panel input::placeholder{color:var(--muted)}
+.add-panel textarea{flex:1 1 100%;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 14px;font-size:14px;font-family:'Inter',sans-serif;outline:none;resize:vertical;min-height:70px}
+.add-panel select{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 14px;font-size:14px;font-family:'Inter',sans-serif;outline:none;cursor:pointer}
+.btn-add{background:var(--accent-grad);color:#1a0f04;border:none;border-radius:10px;padding:11px 20px;font-weight:800;font-size:13.5px;cursor:pointer;transition:filter .15s;white-space:nowrap;font-family:'Inter',sans-serif;box-shadow:0 4px 14px rgba(244,123,32,.3)}
+.btn-add:hover{filter:brightness(1.06)}
+.btn-add:disabled{opacity:.55;cursor:default}
+.chips{display:flex;gap:7px;flex-wrap:wrap;width:100%}
+.chip{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:6px 13px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.chip:hover{color:var(--text);border-color:var(--accent)}
+.chip.sel{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+
+.agents-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:24px}
+.agent-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:11px;transition:border-color .2s,box-shadow .2s;box-shadow:var(--shadow-soft)}
+.agent-card.live{border-color:rgba(244,123,32,.5);background:var(--bg3);box-shadow:var(--shadow-glow)}
+.card-head{display:flex;align-items:center;justify-content:space-between}
+.ch-tag{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em}
+.status-pill{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.status-pill.live-pill{color:var(--warn);font-weight:700}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--border)}
+.dot-live{background:var(--warn);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(244,123,32,.55)}70%{box-shadow:0 0 0 6px rgba(244,123,32,0)}100%{box-shadow:0 0 0 0 rgba(244,123,32,0)}}
+.agent-name{font-size:16px;font-weight:700;line-height:1.2}
+.edit-input{width:100%;background:var(--bg3);border:1px solid var(--accent);color:var(--text);border-radius:8px;padding:7px 10px;font-size:15px;font-weight:600;font-family:'Inter',sans-serif;outline:none}
+.timer-label{font-size:11px;color:var(--muted);letter-spacing:.04em;margin-bottom:2px}
+.agent-timer{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;color:var(--text)}
+.agent-timer.live-text{color:var(--warn)}
+.agent-op{font-size:11px;color:var(--muted)}
+.agent-op strong{color:var(--accent)}
+.agent-meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);border-top:1px solid var(--border);padding-top:9px}
+.agent-meta strong{color:var(--text);font-weight:600}
+.agent-actions{display:flex;gap:7px}
+.btn{flex:1;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;transition:filter .15s,transform .05s;font-family:'Inter',sans-serif}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-start{background:var(--accent-grad);color:#1a0f04;box-shadow:0 4px 14px rgba(244,123,32,.28)}
+.btn-start:hover:not(:disabled){filter:brightness(1.06)}
+.btn-stop{background:var(--bg);color:var(--accent);border:1px solid var(--accent)}
+.btn-stop:hover:not(:disabled){background:var(--accent-dim)}
+.btn-icon{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:10px;width:34px;flex:0 0 auto;cursor:pointer;font-size:13px;transition:all .15s}
+.btn-icon:hover{color:var(--text);border-color:var(--muted)}
+.btn-icon.danger{background:var(--danger-dim);color:var(--danger);border-color:var(--danger)}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:20px;box-shadow:var(--shadow-soft)}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.panel-head h2{font-size:16px;font-weight:700}
+.panel-head-sub{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn-sec{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s,border-color .15s;font-family:'Inter',sans-serif}
+.btn-sec:hover{background:var(--accent-dim);border-color:var(--accent)}
+.btn-sm{padding:6px 11px;font-size:12px}
+.range-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.range-row span{font-size:12px;color:var(--muted)}
+.range-row input[type=date]{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:9px 11px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color-scheme:dark}
+[data-theme="light"] .range-row input[type=date]{color-scheme:light}
+.range-row input[type=date]:focus{border-color:var(--accent)}
+.history-body{display:flex;gap:16px;flex-wrap:wrap}
+.history-dates{list-style:none;width:220px;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+.history-dates li{padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--muted);transition:background .15s,color .15s}
+.history-dates li:hover{background:var(--bg3);color:var(--text)}
+.history-dates li.sel{background:var(--accent-dim);color:var(--accent);font-weight:700}
+.history-detail{flex:1;min-width:240px}
+.htable{width:100%;border-collapse:collapse;font-size:13px}
+.htable th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding:7px 10px;border-bottom:1px solid var(--border)}
+.htable td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.htable tfoot td{font-weight:800;color:var(--accent);border-bottom:none;padding-top:11px}
+.empty{color:var(--muted);font-size:13px;padding:8px 0}
+.err{background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.35);color:#f3a1a3;font-size:13px;padding:10px 14px;border-radius:10px;margin-bottom:14px;display:none}
+.ok-banner{background:var(--ok-dim);border:1px solid rgba(61,220,132,.35);color:#8ff0bb;font-size:13px;padding:10px 14px;border-radius:10px;margin-bottom:14px;display:none}
+.mono{font-family:'JetBrains Mono',monospace}
+.icon-btn{background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:5px;font-size:13px;color:var(--muted);transition:color .15s,background .15s}
+.icon-btn:hover{color:var(--text);background:var(--bg3)}
+.icon-btn.del-btn:hover{color:var(--danger)}
+
+/* ── CHAMADOS (TICKETS) ── */
+.ticket-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tickets-list{display:flex;flex-direction:column;gap:12px}
+.ticket-card{background:var(--bg3);border:1px solid var(--border);border-left:4px solid var(--muted);border-radius:12px;padding:16px 18px}
+.ticket-card.status-aberto{border-left-color:var(--info)}
+.ticket-card.status-em_atendimento{border-left-color:var(--accent)}
+.ticket-card.status-concluido{border-left-color:var(--ok)}
+.ticket-card.status-recusado{border-left-color:var(--danger)}
+.ticket-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.ticket-cat{font-weight:800;font-size:14.5px}
+.ticket-meta-line{font-size:11.5px;color:var(--muted);margin-top:2px}
+.ticket-badge{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.badge-aberto{background:var(--info-dim);color:var(--info)}
+.badge-em_atendimento{background:var(--accent-dim);color:var(--accent)}
+.badge-concluido{background:var(--ok-dim);color:var(--ok)}
+.badge-recusado{background:var(--danger-dim);color:var(--danger)}
+.ticket-desc{font-size:13.5px;color:var(--text);margin:8px 0;line-height:1.5;white-space:pre-wrap}
+.ticket-extra{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.ticket-extra strong{color:var(--text)}
+.ticket-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.ticket-actions .btn-sec, .ticket-actions .btn-add{flex:0 0 auto;padding:8px 16px;font-size:12.5px}
+.btn-danger{background:var(--danger-dim);color:#f3a1a3;border:1px solid var(--danger);border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
+.btn-danger:hover{background:rgba(229,72,77,.22)}
+
+/* ── CHAT ── */
+.chat-wrap{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;height:520px;background:var(--bg2);box-shadow:var(--shadow-soft)}
+.chat-threads{width:220px;border-right:1px solid var(--border);overflow-y:auto;flex:0 0 auto}
+.chat-thread-item{padding:13px 15px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s}
+.chat-thread-item:hover{background:var(--bg3)}
+.chat-thread-item.sel{background:var(--accent-dim);border-left:3px solid var(--accent)}
+.chat-thread-name{font-weight:700;font-size:13px;text-transform:capitalize}
+.chat-thread-preview{font-size:11.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-thread-unread{display:inline-block;background:var(--danger);color:#fff;font-size:10px;font-weight:800;border-radius:10px;padding:1px 6px;margin-left:6px}
+.chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.chat-bubble{max-width:72%;padding:9px 13px;border-radius:14px;font-size:13.5px;line-height:1.4}
+.chat-bubble.mine{align-self:flex-end;background:var(--accent-grad);color:#1a0f04;border-bottom-right-radius:4px}
+.chat-bubble.theirs{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px}
+.chat-bubble .cb-meta{font-size:10px;opacity:.65;margin-top:3px}
+.chat-input-row{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border)}
+.chat-input-row input{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:14px;font-family:'Inter',sans-serif;outline:none}
+.chat-input-row input:focus{border-color:var(--accent)}
+.chat-input-row button{background:var(--accent-grad);color:#1a0f04;border:none;border-radius:10px;padding:10px 18px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif}
+
+/* ── TEAM / MEMBERS ── */
+.member-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:8px}
+.member-row-name{font-weight:700;font-size:13.5px}
+
+/* ── MODALS ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal-box{background:var(--bg2);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:16px;padding:26px;width:100%;max-width:440px;box-shadow:0 8px 40px rgba(0,0,0,.5);max-height:86vh;overflow-y:auto}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.modal-head h3{font-size:16px;font-weight:800}
+.mfield{margin-bottom:14px}
+.mfield label{display:block;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
+.mfield input,.mfield textarea,.mfield select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 13px;font-size:14px;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .15s}
+.mfield select{font-family:'Inter',sans-serif;cursor:pointer}
+.mfield input:focus,.mfield textarea:focus,.mfield select:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.modal-tabs{display:flex;gap:6px;margin-bottom:16px}
+.modal-tab{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--muted);padding:8px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
+.modal-tab.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+
+.manage-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;margin-bottom:6px}
+.login-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
+.login-row-user{font-weight:700;font-size:13.5px;text-transform:capitalize}
+.login-row-pass{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ── CATEGORIES MANAGER ── */
+.cat-manage-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:7px}
+
+footer{text-align:center;color:var(--muted);font-size:12px;margin-top:12px}
+@media(max-width:580px){.summary-strip{grid-template-columns:1fr}.history-dates{width:100%;max-height:130px}.clock-area{text-align:left;align-items:flex-start}.chat-wrap{flex-direction:column;height:auto}.chat-threads{width:100%;max-height:140px;border-right:none;border-bottom:1px solid var(--border)}.chat-messages{height:320px}}
+</style>
+</head>
+<body>
+
+<div id="fbBanner">⚠ Sem conexão com o banco de dados online. Verifique a configuração do Firebase no código.</div>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="badge">⏱</div>
+      <h2>Painel de Atendimento</h2>
+      <p>TifySoluções</p>
+    </div>
+    <div class="login-err" id="loginErr"></div>
+    <div class="lfield">
+      <label>Usuário</label>
+      <input id="loginUser" type="text" placeholder="seu usuário" autocomplete="username"/>
+    </div>
+    <div class="lfield">
+      <label>Senha</label>
+      <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="btn-login" id="loginBtn">Entrar</button>
+    <p class="login-hint">Suporte TI e Supervisores usam o mesmo campo de acesso</p>
+  </div>
+</div>
+
+<!-- ═══ EDIT SESSION MODAL ═══ -->
+<div class="modal-overlay" id="editModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Editar Registro</h3><button class="btn-hdr" id="modalCloseBtn">✕</button></div>
+    <div class="mfield"><label>Início (HH:MM:SS)</label><input id="editStart" type="text" placeholder="ex: 14:30:00"/></div>
+    <div class="mfield"><label>Fim (HH:MM:SS)</label><input id="editEnd" type="text" placeholder="ex: 15:15:00"/></div>
+    <div class="mfield"><label>Atendido por</label><select id="editUser"></select></div>
+    <div class="mfield"><label>Observação</label><textarea id="editNote" rows="2" placeholder="Opcional"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-sec" id="modalCancelBtn">Cancelar</button>
+      <button class="btn-add" id="modalSaveBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MANAGE USERS MODAL (TI) ═══ -->
+<div class="modal-overlay" id="manageModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Gerenciar usuários</h3><button class="btn-hdr" id="manageCloseBtn">✕</button></div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="mtabTi" data-mtab="ti">Suporte TI</button>
+      <button class="modal-tab" id="mtabSup" data-mtab="sup">Supervisores</button>
+    </div>
+    <div id="manageTiPane">
+      <div class="manage-list" id="loginsListTi"></div>
+      <div class="mfield" style="margin-top:16px"><label>Novo usuário (Suporte TI)</label><input id="newLoginUser" type="text" placeholder="usuário" autocomplete="off"/></div>
+      <div class="mfield"><label>Senha</label><input id="newLoginPass" type="text" placeholder="senha" autocomplete="off"/></div>
+      <div class="modal-actions" style="margin-top:0"><button class="btn-add" id="addLoginBtn" style="width:100%">+ Adicionar usuário TI</button></div>
+    </div>
+    <div id="manageSupPane" style="display:none">
+      <div class="manage-list" id="loginsListSup"></div>
+      <div class="mfield" style="margin-top:16px"><label>Novo supervisor</label><input id="newSupUser" type="text" placeholder="usuário" autocomplete="off"/></div>
+      <div class="mfield"><label>Senha</label><input id="newSupPass" type="text" placeholder="senha" autocomplete="off"/></div>
+      <div class="modal-actions" style="margin-top:0"><button class="btn-add" id="addSupBtn" style="width:100%">+ Adicionar supervisor</button></div>
+    </div>
+    <div class="modal-actions"><button class="btn-sec" id="manageCloseBtn2" style="width:100%">Fechar</button></div>
+  </div>
+</div>
+
+<!-- ═══ CATEGORIES MANAGER MODAL (TI) ═══ -->
+<div class="modal-overlay" id="catModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Categorias de chamado</h3><button class="btn-hdr" id="catCloseBtn">✕</button></div>
+    <div id="catList" class="manage-list"></div>
+    <div class="mfield" style="margin-top:16px"><label>Nova categoria</label><input id="newCatName" type="text" placeholder="ex: Hardware, Sistema, Rede..." autocomplete="off"/></div>
+    <div class="modal-actions"><button class="btn-sec" id="catCloseBtn2">Fechar</button><button class="btn-add" id="addCatBtn">+ Adicionar</button></div>
+  </div>
+</div>
+
+<!-- ═══ TICKET REJECT MODAL ═══ -->
+<div class="modal-overlay" id="rejectModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Recusar chamado</h3><button class="btn-hdr" id="rejectCloseBtn">✕</button></div>
+    <div class="mfield"><label>Motivo da não aceitação</label><textarea id="rejectReason" rows="3" placeholder="Explique o motivo para o supervisor..."></textarea></div>
+    <div class="modal-actions"><button class="btn-sec" id="rejectCancelBtn">Cancelar</button><button class="btn-danger" id="rejectConfirmBtn">Recusar chamado</button></div>
+  </div>
+</div>
+
+<!-- ═══ TICKET RESOLVE MODAL ═══ -->
+<div class="modal-overlay" id="resolveModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Concluir chamado</h3><button class="btn-hdr" id="resolveCloseBtn">✕</button></div>
+    <div class="mfield"><label>Solução aplicada</label><textarea id="resolveNote" rows="3" placeholder="Descreva a solução aplicada..."></textarea></div>
+    <div class="modal-actions"><button class="btn-sec" id="resolveCancelBtn">Cancelar</button><button class="btn-add" id="resolveConfirmBtn">Concluir chamado</button></div>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div class="app" id="mainApp" style="display:none">
+  <div class="err" id="errBanner"></div>
+  <div class="ok-banner" id="okBanner"></div>
+  <header class="topbar">
+    <div>
+      <span class="eyebrow">Painel de Atendimento</span>
+      <h1 id="pageTitle">Central de Suporte</h1>
+    </div>
+    <div class="clock-area">
+      <div class="header-btns">
+        <span class="user-tag" id="userTag">—</span>
+        <span class="role-tag" id="roleTag">TI</span>
+        <button class="btn-hdr" id="manageBtn" title="Gerenciar usuários">⚙️</button>
+        <button class="btn-hdr" id="catBtn" title="Categorias de chamado">🏷️</button>
+        <button class="btn-hdr" id="themeBtn" title="Alternar tema">🌙</button>
+        <button class="btn-hdr" id="logoutBtn" title="Sair">↩</button>
+        <div class="clock mono" id="liveClock">--:--:--</div>
+      </div>
+      <div class="sync-note"><span class="sync-dot" id="syncDot"></span><span id="syncNote">Conectando...</span></div>
+    </div>
+  </header>
+
+  <!-- TABS TI -->
+  <nav class="tabs" id="tabsTi" style="display:none">
+    <button class="tab-btn active" data-tab="live">Atendimento</button>
+    <button class="tab-btn" data-tab="tickets">Chamados <span class="tbadge" id="ticketOpenBadge" style="display:none">0</span></button>
+    <button class="tab-btn" data-tab="reports">Relatórios</button>
+    <button class="tab-btn" data-tab="chat">Chat <span class="tbadge" id="chatUnreadBadgeTi" style="display:none">0</span></button>
+  </nav>
+  <!-- TABS SUPERVISOR -->
+  <nav class="tabs" id="tabsSup" style="display:none">
+    <button class="tab-btn active" data-tab="open">Abrir chamado</button>
+    <button class="tab-btn" data-tab="mytickets">Meus chamados <span class="tbadge" id="myTicketBadge" style="display:none">0</span></button>
+    <button class="tab-btn" data-tab="myteam">Minha equipe</button>
+    <button class="tab-btn" data-tab="chat">Chat com Suporte <span class="tbadge" id="chatUnreadBadgeSup" style="display:none">0</span></button>
+  </nav>
+
+  <!-- ═══ TI: ATENDIMENTO ═══ -->
+  <div id="tabLive" style="display:none">
+    <div class="summary-strip">
+      <div class="stat"><div class="stat-label">Horas hoje</div><div class="stat-value mono" id="sumHours">00:00:00</div></div>
+      <div class="stat"><div class="stat-label">Serviços hoje</div><div class="stat-value mono" id="sumCount">0</div></div>
+      <div class="stat"><div class="stat-label">Em atendimento agora</div><div class="stat-value mono" id="sumActive">0</div></div>
+    </div>
+
+    <div class="panel-team">
+      <div class="panel-head"><h2>Equipe online</h2></div>
+      <div class="team-subhead">Suporte TI</div>
+      <div class="team-grid" id="teamGridTi"><p class="empty">Carregando...</p></div>
+      <div class="team-subhead">Supervisores</div>
+      <div class="team-grid" id="teamGridSup"><p class="empty">Carregando...</p></div>
+    </div>
+
+    <div class="add-panel">
+      <input id="newName" type="text" placeholder="Nome do serviço (ex: Relatórios, Suporte técnico)" maxlength="60" autocomplete="off"/>
+      <button class="btn-add" id="addBtn">+ Adicionar serviço</button>
+    </div>
+    <div class="agents-grid" id="agentsGrid"><p class="empty">Carregando...</p></div>
+  </div>
+
+  <!-- ═══ TI: CHAMADOS ═══ -->
+  <div id="tabTickets" style="display:none">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Chamados recebidos</h2>
+        <div class="panel-head-sub">
+          <button class="btn-sec btn-sm" id="refreshTicketsBtn">Atualizar</button>
+        </div>
+      </div>
+      <div class="ticket-filters" id="ticketFiltersTi"></div>
+      <div class="tickets-list" id="ticketsListTi"><p class="empty">Carregando...</p></div>
+    </div>
+  </div>
+
+  <!-- ═══ TI: RELATÓRIOS ═══ -->
+  <div id="tabReports" style="display:none">
+    <div class="panel">
+      <div class="panel-head"><h2>Visão geral — Serviços (todo o período)</h2><button class="btn-sec" id="refreshRankBtn">Atualizar</button></div>
+      <div id="rankWrap"><p class="empty">Calculando...</p></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Visão geral — Chamados</h2></div>
+      <div id="ticketStatsWrap"><p class="empty">Calculando...</p></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Histórico por data</h2><button class="btn-sec" id="exportAllBtn">Exportar tudo (.xlsx)</button></div>
+      <div class="range-row">
+        <span>Exportar período:</span>
+        <input type="date" id="rangeFrom"/><span>até</span><input type="date" id="rangeTo"/>
+        <button class="btn-sec btn-sm" id="exportRangeBtn">Exportar período (.xlsx)</button>
+      </div>
+      <div class="history-body">
+        <ul class="history-dates" id="historyDates"></ul>
+        <div class="history-detail" id="historyDetail"><p class="empty">Selecione uma data para ver o detalhamento.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SUPERVISOR: ABRIR CHAMADO ═══ -->
+  <div id="tabOpen" style="display:none">
+    <div class="panel">
+      <div class="panel-head"><h2>Abrir novo chamado</h2></div>
+      <div class="mfield"><label>Tipo de problema</label>
+        <input id="ticketCategory" type="text" placeholder="ex: Impressora não funciona" maxlength="80" autocomplete="off"/>
+        <div class="chips" id="categoryChips" style="margin-top:9px"></div>
+      </div>
+      <div class="mfield"><label>Membro da equipe (opcional)</label>
+        <select id="ticketMember"><option value="">— Eu mesmo / não se aplica —</option></select>
+      </div>
+      <div class="mfield"><label>Observação</label>
+        <textarea id="ticketDesc" rows="4" placeholder="Descreva o problema com detalhes..."></textarea>
+      </div>
+      <button class="btn-add" id="sendTicketBtn" style="width:100%">Enviar chamado</button>
+    </div>
+  </div>
+
+  <!-- ═══ SUPERVISOR: MEUS CHAMADOS ═══ -->
+  <div id="tabMyTickets" style="display:none">
+    <div class="panel">
+      <div class="panel-head"><h2>Meus chamados</h2><button class="btn-sec btn-sm" id="refreshMyTicketsBtn">Atualizar</button></div>
+      <div class="ticket-filters" id="ticketFiltersSup"></div>
+      <div class="tickets-list" id="ticketsListSup"><p class="empty">Carregando...</p></div>
+    </div>
+  </div>
+
+  <!-- ═══ SUPERVISOR: MINHA EQUIPE ═══ -->
+  <div id="tabMyTeam" style="display:none">
+    <div class="panel">
+      <div class="panel-head"><h2>Minha equipe</h2></div>
+      <div id="myTeamList"><p class="empty">Carregando...</p></div>
+      <div class="add-panel" style="margin-top:14px;margin-bottom:0">
+        <input id="newMemberName" type="text" placeholder="Nome do integrante" maxlength="60" autocomplete="off"/>
+        <button class="btn-add" id="addMemberBtn">+ Adicionar integrante</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CHAT (ambos) ═══ -->
+  <div id="tabChat" style="display:none">
+    <div class="panel">
+      <div class="panel-head"><h2 id="chatTitle">Chat</h2></div>
+      <div class="chat-wrap">
+        <div class="chat-threads" id="chatThreads"></div>
+        <div class="chat-main">
+          <div class="chat-messages" id="chatMessages"><p class="empty" style="padding:16px">Selecione uma conversa.</p></div>
+          <div class="chat-input-row">
+            <input id="chatInput" type="text" placeholder="Digite sua mensagem..." autocomplete="off"/>
+            <button id="chatSendBtn">Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer><p>Dados sincronizados online via Firebase — visíveis em tempo real para toda a equipe.</p></footer>
+</div>
+
+<script>
+'use strict';
+/* ══════════════════════════════════════════════════════════════════════════
+   CONFIGURAÇÃO DO FIREBASE
+   Substitua os valores abaixo pelos do SEU projeto Firebase
+   (Console Firebase > Configurações do projeto > Seus apps > Config do SDK).
+   Sem isso preenchido corretamente, o site fica no modo offline (aviso vermelho no topo).
+   ══════════════════════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyC172R1nOJJKQcVr_hx9WZFocyEEQxt6VI",
+  authDomain: "painel-tifysolucoes.firebaseapp.com",
+  databaseURL: "https://painel-tifysolucoes-default-rtdb.firebaseio.com",
+  projectId: "painel-tifysolucoes",
+  storageBucket: "painel-tifysolucoes.firebasestorage.app",
+  messagingSenderId: "1022279289618",
+  appId: "1:1022279289618:web:f3c363cdb3c07004dd41cb"
+};
+
+let fbReady = false;
+let db = null;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+  fbReady = true;
+}catch(e){ console.error('Firebase init falhou', e); }
+
+function R(path){ return db.ref(path); }
+
+// Semeia os 3 logins padrão de Suporte TI apenas se o banco ainda estiver
+// completamente vazio (primeira vez que o site é aberto com este projeto).
+// Depois disso, a gestão de usuários passa a ser feita pelo botão ⚙️ no site.
+if(fbReady){
+  R('logins/ti').once('value').then(snap=>{
+    if(!snap.exists()){
+      R('logins/ti').set({
+        eber:   {password:'admtifysolucoes'},
+        julio:  {password:'admtifysolucoes'},
+        romulo: {password:'admtifysolucoes'}
+      });
+    }
+  }).catch(()=>{});
+}
+
+// ── ESTADO GLOBAL (espelho local dos dados do Firebase, mantido por listeners) ──
+let currentUser = null;
+let currentRole = null; // 'ti' | 'sup'
+let tiLogins    = {};   // {username:{password}}
+let supLogins   = {};   // {username:{password}}
+let teams       = {};   // {supUsername:{memberId:{name}}}
+let categories  = {};   // {catId:{name}}
+let services    = {};   // {serviceId:{name}}
+let activeSess  = {};   // {serviceId:{start,user,disconnected,lastBeat}}
+let todayDay    = {};   // {serviceId:{sessKey:{start,end,duration,user,note}}}
+let tickets     = {};   // {ticketId:{...}}
+let presence    = {};   // {username:{online,ts,tasks,role}}
+let chatThreadsUnread = {};
+
+let editingId=null, confirmDel=new Set(), curDate=null, rankLoaded=false, editCtx=null;
+let ticketFilterTi='all', ticketFilterSup='all';
+let selectedCategoryChip=null;
+let activeChatThread=null; // username do supervisor cuja conversa está aberta
+let listenersBound=false;
+
+// ── UTILS ────────────────────────────────────────────────────────────────────
+function pad2(n){ return String(n).padStart(2,'0') }
+function todayKey(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}` }
+function dateKeyFromMs(ms){ const d=new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}` }
+function fmtHMS(s){ s=Math.max(0,Math.round(s||0)); return `${pad2(Math.floor(s/3600))}:${pad2(Math.floor((s%3600)/60))}:${pad2(s%60)}` }
+function fmtDate(dk){ const [y,m,d]=dk.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}) }
+function fmtTimestamp(ms){ const d=new Date(ms); return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}` }
+function fmtTimeOnly(ms){ const d=new Date(ms); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}` }
+function fmtDateTimeShort(ms){ const d=new Date(ms); return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}` }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+function flashErr(msg){ const el=document.getElementById('errBanner'); el.textContent=msg; el.style.display='block'; clearTimeout(window._et); window._et=setTimeout(()=>el.style.display='none',4500); }
+function flashOk(msg){ const el=document.getElementById('okBanner'); el.textContent=msg; el.style.display='block'; clearTimeout(window._ot); window._ot=setTimeout(()=>el.style.display='none',3500); }
+function parseTimeToMs(dateMs, timeStr){
+  const parts = timeStr.trim().split(':').map(Number);
+  if(parts.length<2||parts.some(isNaN)) return null;
+  const d = new Date(dateMs); d.setHours(parts[0]||0, parts[1]||0, parts[2]||0, 0); return d.getTime();
+}
+function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8) }
+
+// ── TEMA ────────────────────────────────────────────────────────────────────
+function applyTheme(){
+  const t = localStorage.getItem('att:theme')||'dark';
+  document.documentElement.setAttribute('data-theme', t==='light'?'light':'');
+  const btn = document.getElementById('themeBtn');
+  if(btn) btn.textContent = t==='light' ? '🌙' : '☀️';
+}
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  const cur = localStorage.getItem('att:theme')||'dark';
+  localStorage.setItem('att:theme', cur==='dark'?'light':'dark');
+  applyTheme();
+});
+applyTheme();
+
+if(!fbReady){ document.getElementById('fbBanner').style.display='block'; }
+
+// ── LOGIN (verifica em logins/ti e logins/sup no Firebase) ───────────────────
+function doLogin(){
+  if(!fbReady){ document.getElementById('loginErr').textContent='Sem conexão com o banco de dados. Configure o Firebase.'; document.getElementById('loginErr').style.display='block'; return; }
+  const u = document.getElementById('loginUser').value.trim().toLowerCase();
+  const p = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  if(!u||!p){ err.textContent='Informe usuário e senha.'; err.style.display='block'; return; }
+  btn.disabled=true; btn.textContent='Entrando...';
+  R('logins').once('value').then(snap=>{
+    const val = snap.val()||{};
+    const ti = val.ti||{}, sup = val.sup||{};
+    let role=null;
+    if(ti[u] && ti[u].password===p) role='ti';
+    else if(sup[u] && sup[u].password===p) role='sup';
+    btn.disabled=false; btn.textContent='Entrar';
+    if(!role){ err.textContent='Usuário ou senha incorretos.'; err.style.display='block'; return; }
+    err.style.display='none';
+    currentUser=u; currentRole=role;
+    sessionStorage.setItem('att:session', JSON.stringify({u,role}));
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    startApp();
+  }).catch(e=>{
+    btn.disabled=false; btn.textContent='Entrar';
+    err.textContent='Erro ao conectar ao banco de dados.'; err.style.display='block';
+  });
+}
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('loginUser').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('loginPass').focus(); });
+document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('logoutBtn').addEventListener('click',()=>{
+  closeAllMyActiveSessions();
+  setPresenceOffline();
+  sessionStorage.removeItem('att:session');
+  currentUser=null; currentRole=null;
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('loginUser').value=''; document.getElementById('loginPass').value='';
+});
+
+// ── GERENCIAR USUÁRIOS (TI) ───────────────────────────────────────────────────
+function openManageModal(){ renderLoginsLists(); document.getElementById('manageModal').style.display='flex'; }
+function closeManageModal(){ document.getElementById('manageModal').style.display='none'; }
+function renderLoginsLists(){
+  const ti = Object.entries(tiLogins);
+  const sup = Object.entries(supLogins);
+  document.getElementById('loginsListTi').innerHTML = ti.map(([u,o])=>`
+    <div class="login-row"><div><div class="login-row-user">${esc(u)}</div><div class="login-row-pass mono">senha: ${esc(o.password)}</div></div>
+    <button class="btn-icon danger" data-del-ti="${esc(u)}" ${ti.length<=1?'disabled':''} title="Remover">✕</button></div>`).join('') || '<p class="empty">Nenhum usuário.</p>';
+  document.getElementById('loginsListSup').innerHTML = sup.map(([u,o])=>`
+    <div class="login-row"><div><div class="login-row-user">${esc(u)}</div><div class="login-row-pass mono">senha: ${esc(o.password)}</div></div>
+    <button class="btn-icon danger" data-del-sup="${esc(u)}" title="Remover">✕</button></div>`).join('') || '<p class="empty">Nenhum supervisor cadastrado.</p>';
+}
+document.getElementById('manageBtn').addEventListener('click', openManageModal);
+document.getElementById('manageCloseBtn').addEventListener('click', closeManageModal);
+document.getElementById('manageCloseBtn2').addEventListener('click', closeManageModal);
+document.getElementById('manageModal').addEventListener('click', e=>{ if(e.target.id==='manageModal') closeManageModal(); });
+document.getElementById('mtabTi').addEventListener('click',()=>{
+  document.getElementById('mtabTi').classList.add('active'); document.getElementById('mtabSup').classList.remove('active');
+  document.getElementById('manageTiPane').style.display=''; document.getElementById('manageSupPane').style.display='none';
+});
+document.getElementById('mtabSup').addEventListener('click',()=>{
+  document.getElementById('mtabSup').classList.add('active'); document.getElementById('mtabTi').classList.remove('active');
+  document.getElementById('manageSupPane').style.display=''; document.getElementById('manageTiPane').style.display='none';
+});
+document.getElementById('addLoginBtn').addEventListener('click', ()=>{
+  const uEl=document.getElementById('newLoginUser'), pEl=document.getElementById('newLoginPass');
+  const u=uEl.value.trim().toLowerCase(), p=pEl.value;
+  if(!u||!p){ flashErr('Informe usuário e senha.'); return; }
+  if(tiLogins[u]||supLogins[u]){ flashErr('Já existe um usuário com esse nome.'); return; }
+  R('logins/ti/'+u).set({password:p}).then(()=>{ uEl.value=''; pEl.value=''; flashOk('Usuário TI adicionado.'); }).catch(()=>flashErr('Erro ao salvar.'));
+});
+document.getElementById('addSupBtn').addEventListener('click', ()=>{
+  const uEl=document.getElementById('newSupUser'), pEl=document.getElementById('newSupPass');
+  const u=uEl.value.trim().toLowerCase(), p=pEl.value;
+  if(!u||!p){ flashErr('Informe usuário e senha.'); return; }
+  if(tiLogins[u]||supLogins[u]){ flashErr('Já existe um usuário com esse nome.'); return; }
+  R('logins/sup/'+u).set({password:p}).then(()=>{ uEl.value=''; pEl.value=''; flashOk('Supervisor adicionado.'); }).catch(()=>flashErr('Erro ao salvar.'));
+});
+document.getElementById('loginsListTi').addEventListener('click', e=>{
+  const btn=e.target.closest('[data-del-ti]'); if(!btn) return;
+  if(Object.keys(tiLogins).length<=1){ flashErr('É necessário manter ao menos um usuário TI.'); return; }
+  R('logins/ti/'+btn.dataset.delTi).remove();
+});
+document.getElementById('loginsListSup').addEventListener('click', e=>{
+  const btn=e.target.closest('[data-del-sup]'); if(!btn) return;
+  const u=btn.dataset.delSup;
+  R('logins/sup/'+u).remove();
+  R('teams/'+u).remove();
+});
+
+// ── CATEGORIAS (TI gerencia; Supervisor apenas visualiza/usa) ────────────────
+function openCatModal(){ renderCatList(); document.getElementById('catModal').style.display='flex'; }
+function closeCatModal(){ document.getElementById('catModal').style.display='none'; }
+function renderCatList(){
+  const entries=Object.entries(categories);
+  document.getElementById('catList').innerHTML = entries.length ? entries.map(([id,o])=>`
+    <div class="cat-manage-row"><span>${esc(o.name)}</span><button class="btn-icon danger" data-del-cat="${id}" title="Remover">✕</button></div>
+  `).join('') : '<p class="empty">Nenhuma categoria cadastrada.</p>';
+}
+document.getElementById('catBtn').addEventListener('click', ()=>{
+  if(currentRole!=='ti'){ flashErr('Apenas o Suporte TI pode gerenciar categorias.'); return; }
+  openCatModal();
+});
+document.getElementById('catCloseBtn').addEventListener('click', closeCatModal);
+document.getElementById('catCloseBtn2').addEventListener('click', closeCatModal);
+document.getElementById('catModal').addEventListener('click', e=>{ if(e.target.id==='catModal') closeCatModal(); });
+document.getElementById('addCatBtn').addEventListener('click', ()=>{
+  const el=document.getElementById('newCatName'); const name=el.value.trim();
+  if(!name) return;
+  R('categories/'+genId()).set({name}).then(()=>{ el.value=''; }).catch(()=>flashErr('Erro ao salvar categoria.'));
+});
+document.getElementById('catList').addEventListener('click', e=>{
+  const btn=e.target.closest('[data-del-cat]'); if(!btn) return;
+  R('categories/'+btn.dataset.delCat).remove();
+});
+
+// ── PRESENÇA (usa onDisconnect do Firebase — funciona mesmo se o PC travar) ──
+function setPresenceOnline(){
+  if(!currentUser) return;
+  const ref = R('presence/'+currentUser);
+  ref.onDisconnect().update({online:false, ts:firebase.database.ServerValue.TIMESTAMP});
+  ref.update({online:true, ts:firebase.database.ServerValue.TIMESTAMP, role:currentRole});
+}
+function setPresenceOffline(){
+  if(!currentUser) return;
+  R('presence/'+currentUser).update({online:false, ts:firebase.database.ServerValue.TIMESTAMP});
+}
+function updatePresenceTasks(){
+  if(!currentUser || currentRole!=='ti') return;
+  const tasks = Object.keys(services).filter(id=>activeSess[id] && activeSess[id].user===currentUser).map(id=>services[id].name);
+  R('presence/'+currentUser).update({tasks, ts:firebase.database.ServerValue.TIMESTAMP});
+}
+function renderTeam(){
+  const now=Date.now();
+  function block(loginsObj, role){
+    return Object.keys(loginsObj).map(u=>{
+      const p=presence[u];
+      const online=!!p && p.online;
+      const tasks = online ? (p.tasks||[]) : [];
+      const you = u===currentUser;
+      let statusText;
+      if(!online) statusText = (p&&p.ts) ? `Offline · última vez às ${fmtTimeOnly(p.ts)}` : 'Ainda não conectou';
+      else statusText = tasks.length ? `Em atendimento de: <strong>${tasks.map(esc).join(', ')}</strong>` : 'Disponível';
+      return `<div class="team-card${online?' online':''}"><div class="team-top"><span class="team-dot ${online?'dot-online':'dot-offline'}"></span><span class="team-name">${esc(u)}${you?' <em>(você)</em>':''}</span></div><div class="team-status">${statusText}</div></div>`;
+    }).join('') || '<p class="empty">Nenhum usuário cadastrado.</p>';
+  }
+  const gTi=document.getElementById('teamGridTi'), gSup=document.getElementById('teamGridSup');
+  if(gTi) gTi.innerHTML = block(tiLogins,'ti');
+  if(gSup) gSup.innerHTML = block(supLogins,'sup');
+}
+
+// ── SERVIÇOS (cronômetro) ─────────────────────────────────────────────────────
+function addService(name){
+  R('services/'+genId()).set({name}).catch(()=>flashErr('Erro ao adicionar serviço.'));
+}
+function renameService(id,name){ R('services/'+id+'/name').set(name).catch(()=>flashErr('Erro ao renomear.')); }
+function deleteService(id){ stopSession(id); R('services/'+id).remove().catch(()=>flashErr('Erro ao remover.')); }
+
+function startSession(id){
+  if(activeSess[id]) return;
+  const ref = R('active/'+id);
+  const rec = {start:Date.now(), user:currentUser, lastBeat:Date.now()};
+  ref.set(rec).then(()=>{
+    ref.onDisconnect().update({disconnected:true});
+    updatePresenceTasks();
+  }).catch(()=>flashErr('Não foi possível iniciar o atendimento.'));
+}
+function closeSessionToHistory(id, rec, endMs){
+  const t0=rec.start;
+  const sessUser=rec.user||'';
+  const dur=Math.max(1,Math.round((endMs-t0)/1000));
+  const dk=dateKeyFromMs(t0);
+  const sess={start:t0,end:endMs,duration:dur,user:sessUser};
+  R('days/'+dk+'/'+id+'/'+genId()).set(sess);
+  R('active/'+id).remove();
+}
+function stopSession(id){
+  const rec=activeSess[id]; if(!rec) return;
+  closeSessionToHistory(id, rec, Date.now());
+  updatePresenceTasks();
+}
+function closeAllMyActiveSessions(){
+  // ao sair/desconectar, encerra apenas as sessões que ESTE usuário iniciou
+  Object.keys(activeSess).forEach(id=>{
+    const rec=activeSess[id];
+    if(rec && rec.user===currentUser) closeSessionToHistory(id, rec, Date.now());
+  });
+}
+// heartbeat para as sessões que este cliente iniciou, e faxina de sessões órfãs
+function heartbeatAndJanitor(){
+  const now=Date.now();
+  Object.keys(activeSess).forEach(id=>{
+    const rec=activeSess[id];
+    if(!rec) return;
+    if(rec.user===currentUser){
+      R('active/'+id+'/lastBeat').set(now);
+    } else if(rec.disconnected || (rec.lastBeat && now-rec.lastBeat>30000)){
+      // sessão órfã (cliente que a iniciou caiu) — qualquer TI online faz a faxina
+      if(currentRole==='ti'){
+        const endMs = rec.lastBeat || rec.start;
+        R('active/'+id).transaction(cur=>{
+          if(cur===null) return cur; // já foi processada por outro cliente
+          return null; // remove
+        }).then(res=>{
+          if(res.committed){ closeSessionToHistory(id, rec, endMs); }
+        });
+      }
+    }
+  });
+}
+
+window.addEventListener('beforeunload', ()=>{ closeAllMyActiveSessions(); setPresenceOffline(); });
+window.addEventListener('pagehide',     ()=>{ closeAllMyActiveSessions(); setPresenceOffline(); });
+
+function computeSummary(){
+  let s=0,c=0,a=0;
+  for(const id in todayDay){ const sessions=Object.values(todayDay[id]||{}); c+=sessions.length; s+=sessions.reduce((t,x)=>t+(x.duration||0),0); }
+  for(const id in activeSess){ a++; if(dateKeyFromMs(activeSess[id].start)===todayKey()) s+=(Date.now()-activeSess[id].start)/1000; }
+  return{s,c,a};
+}
+function renderSummary(){
+  const{s,c,a}=computeSummary();
+  document.getElementById('sumHours').textContent=fmtHMS(s);
+  document.getElementById('sumCount').textContent=c;
+  document.getElementById('sumActive').textContent=a;
+}
+function serviceTodayTotals(id){
+  const sessions=Object.values((todayDay[id])||{});
+  return { totalSeconds: sessions.reduce((t,x)=>t+(x.duration||0),0), count: sessions.length };
+}
+function renderAgents(){
+  const g=document.getElementById('agentsGrid');
+  const ids=Object.keys(services);
+  if(!ids.length){ g.innerHTML='<p class="empty">Nenhum serviço cadastrado. Adicione o primeiro acima.</p>'; return; }
+  g.innerHTML=ids.map((id,i)=>{
+    const u=services[id];
+    const rec=activeSess[id];
+    const active=!!rec;
+    const day=serviceTodayTotals(id);
+    const live=active?(Date.now()-rec.start)/1000:0;
+    const isEdit=editingId===id;
+    const isDel=confirmDel.has(id);
+    const nameEl=isEdit?`<input class="edit-input" data-id="${id}" value="${esc(u.name)}" maxlength="60"/>`:`<div class="agent-name">${esc(u.name)}</div>`;
+    const acts=isEdit
+      ?`<button class="btn btn-start" data-a="save" data-id="${id}">Salvar</button><button class="btn-icon" data-a="cancel" data-id="${id}">✕</button>`
+      :`<button class="btn ${active?'btn-stop':'btn-start'}" data-a="${active?'stop':'start'}" data-id="${id}">${active?'Finalizar':'Iniciar'}</button>
+        <button class="btn-icon" data-a="edit" data-id="${id}" title="Renomear">✎</button>
+        <button class="btn-icon${isDel?' danger':''}" data-a="del" data-id="${id}" title="${isDel?'Confirmar remoção':'Remover'}">${isDel?'✓':'✕'}</button>`;
+    return`<div class="agent-card${active?' live':''}">
+      <div class="card-head"><span class="ch-tag">SERVIÇO ${pad2(i+1)}</span>
+        <span class="status-pill${active?' live-pill':''}"><span class="dot${active?' dot-live':''}"></span>${active?'Em atendimento':'Disponível'}</span></div>
+      ${nameEl}
+      <div><div class="timer-label">Tempo neste atendimento</div><div class="agent-timer mono${active?' live-text':''}">${active?fmtHMS(live):'00:00:00'}</div></div>
+      ${active?`<div class="agent-op">Atendido por <strong>${esc(rec.user||'—')}</strong></div>`:''}
+      <div class="agent-meta"><span>Total hoje: <strong class="mono">${fmtHMS(day.totalSeconds)}</strong></span><span>${day.count} atendimento${day.count===1?'':'s'}</span></div>
+      <div class="agent-actions">${acts}</div>
+    </div>`;
+  }).join('');
+}
+function render(){ renderAgents(); renderSummary(); }
+
+// ── HISTÓRICO / RELATÓRIOS DE SERVIÇOS ────────────────────────────────────────
+let allDaysCache={}; // carregado sob demanda para relatórios/exportação
+function loadHistoryDates(){
+  R('days').once('value').then(snap=>{
+    allDaysCache = snap.val()||{};
+    const dates=Object.keys(allDaysCache).sort((a,b)=>b.localeCompare(a));
+    const ul=document.getElementById('historyDates');
+    if(!ul) return;
+    if(!dates.length){ ul.innerHTML='<li class="empty">Nenhum registro ainda.</li>'; return; }
+    ul.innerHTML=dates.map(d=>`<li data-date="${d}" class="${d===curDate?'sel':''}">${fmtDate(d)}</li>`).join('');
+  });
+}
+function renderHistoryDetail(date){
+  const c=document.getElementById('historyDetail');
+  const data=allDaysCache[date]||{};
+  const ids=Object.keys(data);
+  if(!ids.length){ c.innerHTML='<p class="empty">Sem registros para esta data.</p>'; return; }
+  let gs=0, gc=0; const allRows=[];
+  ids.forEach(id=>{
+    const nm = services[id] ? services[id].name : 'Serviço removido';
+    const sessions=Object.entries(data[id]);
+    sessions.forEach(([sk,s])=>{ gs+=s.duration||0; gc++; allRows.push({agentId:id, agentName:nm, sessKey:sk, ...s}); });
+  });
+  allRows.sort((a,b)=>a.start-b.start);
+  const rows=allRows.map(s=>`<tr>
+    <td>${esc(s.agentName)}</td><td class="mono" style="font-size:12px">${fmtTimeOnly(s.start)}</td><td class="mono" style="font-size:12px">${fmtTimeOnly(s.end)}</td>
+    <td class="mono">${fmtHMS(s.duration)}</td><td style="font-size:12px;color:var(--muted)">${s.user?esc(s.user):'—'}</td>
+    <td style="white-space:nowrap"><button class="icon-btn" data-action="edit-sess" data-date="${date}" data-agent="${s.agentId}" data-skey="${s.sessKey}" title="Editar">✎</button></td></tr>`).join('');
+  c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px"><strong style="font-size:14px">${fmtDate(date)}</strong><button class="btn-sec btn-sm" id="exportDateBtn">Exportar (.xlsx)</button></div>
+    <table class="htable"><thead><tr><th>Serviço</th><th>Início</th><th>Fim</th><th>Duração</th><th>Operador</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="6">Sem registros.</td></tr>'}</tbody>
+    <tfoot><tr><td colspan="3">Total</td><td class="mono">${fmtHMS(gs)}</td><td>${gc} atendimento${gc===1?'':'s'}</td><td></td></tr></tfoot></table>`;
+}
+function populateEditUserSelect(selected){
+  const sel=document.getElementById('editUser');
+  const names=[...Object.keys(tiLogins), ...Object.keys(supLogins)];
+  if(selected && !names.includes(selected)) names.push(selected);
+  sel.innerHTML = names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if(selected) sel.value=selected;
+}
+function openEditModal(date, agentId, sessKey){
+  const sess=(allDaysCache[date]||{})[agentId]?.[sessKey];
+  if(!sess){ flashErr('Sessão não encontrada.'); return; }
+  editCtx={date, agentId, sessKey};
+  document.getElementById('editStart').value=fmtTimeOnly(sess.start);
+  document.getElementById('editEnd').value=fmtTimeOnly(sess.end);
+  document.getElementById('editNote').value=sess.note||'';
+  populateEditUserSelect(sess.user||currentUser);
+  document.getElementById('editModal').style.display='flex';
+}
+function closeEditModal(){ document.getElementById('editModal').style.display='none'; editCtx=null; }
+function saveEditModal(){
+  if(!editCtx){ closeEditModal(); return; }
+  const {date, agentId, sessKey}=editCtx;
+  const sess=(allDaysCache[date]||{})[agentId]?.[sessKey];
+  if(!sess){ flashErr('Sessão não encontrada.'); closeEditModal(); return; }
+  const newStart=parseTimeToMs(sess.start, document.getElementById('editStart').value);
+  const newEnd=parseTimeToMs(sess.end, document.getElementById('editEnd').value);
+  if(!newStart||!newEnd||newEnd<=newStart){ flashErr('Horários inválidos.'); return; }
+  const updated={start:newStart, end:newEnd, duration:Math.max(1,Math.round((newEnd-newStart)/1000)), user:document.getElementById('editUser').value||sess.user, note:document.getElementById('editNote').value.trim()};
+  R('days/'+date+'/'+agentId+'/'+sessKey).update(updated).then(()=>{
+    allDaysCache[date][agentId][sessKey]={...sess,...updated};
+    if(date===todayKey()){ todayDay=allDaysCache[todayKey()]||{}; renderSummary(); }
+    closeEditModal(); renderHistoryDetail(date);
+  }).catch(()=>flashErr('Erro ao salvar edição.'));
+}
+document.getElementById('modalCloseBtn').addEventListener('click', closeEditModal);
+document.getElementById('modalCancelBtn').addEventListener('click', closeEditModal);
+document.getElementById('modalSaveBtn').addEventListener('click', saveEditModal);
+document.getElementById('editModal').addEventListener('click', e=>{ if(e.target===document.getElementById('editModal')) closeEditModal(); });
+
+function refreshRanking(){
+  const c=document.getElementById('rankWrap');
+  const agg={};
+  Object.values(allDaysCache).forEach(day=>{
+    Object.entries(day).forEach(([id,sessions])=>{
+      if(!agg[id]) agg[id]={s:0,c:0};
+      Object.values(sessions).forEach(sx=>{ agg[id].s+=sx.duration||0; agg[id].c++; });
+    });
+  });
+  const rows=Object.keys(agg).map(id=>({name:services[id]?services[id].name:'Removido', s:agg[id].s, c:agg[id].c, avg:agg[id].c>0?agg[id].s/agg[id].c:0})).sort((a,b)=>b.s-a.s);
+  if(!rows.length){ c.innerHTML='<p class="empty">Ainda não há atendimentos registrados.</p>'; return; }
+  c.innerHTML=`<table class="htable"><thead><tr><th>Serviço</th><th>Atendimentos</th><th>Tempo total</th><th>Tempo médio</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr><td>${esc(r.name)}</td><td class="mono">${r.c}</td><td class="mono">${fmtHMS(r.s)}</td><td class="mono">${fmtHMS(r.avg)}</td></tr>`).join('')}</tbody></table>`;
+}
+function renderTicketStats(){
+  const wrap=document.getElementById('ticketStatsWrap'); if(!wrap) return;
+  const all=Object.values(tickets);
+  if(!all.length){ wrap.innerHTML='<p class="empty">Ainda não há chamados registrados.</p>'; return; }
+  const byCat={}; let totalResolved=0, sumResolveTime=0;
+  all.forEach(t=>{
+    byCat[t.category]=(byCat[t.category]||0)+1;
+    if(t.status==='concluido' && t.acceptedAt && t.resolvedAt){ totalResolved++; sumResolveTime += (t.resolvedAt-t.acceptedAt); }
+  });
+  const statusCounts={aberto:0, em_atendimento:0, concluido:0, recusado:0};
+  all.forEach(t=>{ if(statusCounts[t.status]!=null) statusCounts[t.status]++; });
+  const avgTime = totalResolved ? fmtHMS(sumResolveTime/1000/totalResolved) : '—';
+  const catRows=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([cat,n])=>`<tr><td>${esc(cat)}</td><td class="mono">${n}</td></tr>`).join('');
+  wrap.innerHTML=`
+    <div class="summary-strip" style="margin-bottom:16px">
+      <div class="stat"><div class="stat-label">Total de chamados</div><div class="stat-value mono">${all.length}</div></div>
+      <div class="stat"><div class="stat-label">Tempo médio de atendimento</div><div class="stat-value mono">${avgTime}</div></div>
+      <div class="stat"><div class="stat-label">Abertos agora</div><div class="stat-value mono">${statusCounts.aberto+statusCounts.em_atendimento}</div></div>
+    </div>
+    <table class="htable"><thead><tr><th>Tipo de problema</th><th>Quantidade</th></tr></thead><tbody>${catRows}</tbody></table>`;
+}
+
+function buildSummaryAOA(rows){
+  return[['Serviço','Atendimentos','Tempo total (hh:mm:ss)','Tempo total (horas)','Tempo médio'],
+    ...rows.map(r=>[r.name, r.count, fmtHMS(r.totalSeconds), Math.round((r.totalSeconds/3600)*100)/100, fmtHMS(r.count>0?r.totalSeconds/r.count:0)])];
+}
+function buildDetailRows(date, data){
+  const det=[['Serviço','Operador','Data','Início','Fim','Duração (hh:mm:ss)','Duração (min)','Observação']];
+  Object.entries(data).forEach(([id,sessions])=>{
+    const nm=services[id]?services[id].name:'Removido';
+    Object.values(sessions).forEach(s=>det.push([nm, s.user||'', date, fmtTimestamp(s.start), fmtTimestamp(s.end), fmtHMS(s.duration), Math.round((s.duration/60)*100)/100, s.note||'']));
+  });
+  const header=det.shift(); det.sort((a,b)=>new Date(a[3])-new Date(b[3])); return [header,...det];
+}
+function exportDate(date){
+  if(!window.XLSX){ flashErr('Módulo XLSX não carregado.'); return; }
+  const data=allDaysCache[date]||{}; const ids=Object.keys(data);
+  if(!ids.length){ flashErr('Sem registros nesta data.'); return; }
+  const rows=ids.map(id=>{ const sessions=Object.values(data[id]); return {name:services[id]?services[id].name:'Removido', count:sessions.length, totalSeconds:sessions.reduce((t,x)=>t+(x.duration||0),0)} }).sort((a,b)=>b.totalSeconds-a.totalSeconds);
+  const det=buildDetailRows(date,data);
+  const wb=XLSX.utils.book_new();
+  const ws1=XLSX.utils.aoa_to_sheet(buildSummaryAOA(rows)); ws1['!cols']=[{wch:24},{wch:14},{wch:20},{wch:16},{wch:18}];
+  const ws2=XLSX.utils.aoa_to_sheet(det); ws2['!cols']=[{wch:24},{wch:14},{wch:12},{wch:20},{wch:20},{wch:18},{wch:14},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Resumo'); XLSX.utils.book_append_sheet(wb,ws2,'Detalhamento');
+  XLSX.writeFile(wb,`atendimento-${date}.xlsx`);
+}
+function exportRangeGeneric(dates, filenameSuffix, sheetPrefix){
+  const wb=XLSX.utils.book_new(); const overall={};
+  const flat=[['Data','Serviço','Operador','Início','Fim','Duração (hh:mm:ss)','Duração (min)','Observação']];
+  dates.forEach(date=>{
+    const day=allDaysCache[date]||{}; const ids=Object.keys(day);
+    const rows=ids.map(id=>{
+      const nm=services[id]?services[id].name:'Removido';
+      const sessions=Object.values(day[id]);
+      if(!overall[nm]) overall[nm]={count:0,totalSeconds:0};
+      const tot=sessions.reduce((t,x)=>t+(x.duration||0),0);
+      overall[nm].totalSeconds+=tot; overall[nm].count+=sessions.length;
+      Object.values(day[id]).forEach(s=>flat.push([date,nm,s.user||'',fmtTimestamp(s.start),fmtTimestamp(s.end),fmtHMS(s.duration),Math.round((s.duration/60)*100)/100,s.note||'']));
+      return{name:nm,count:sessions.length,totalSeconds:tot};
+    }).sort((a,b)=>b.totalSeconds-a.totalSeconds);
+    if(rows.length){ const ws=XLSX.utils.aoa_to_sheet(buildSummaryAOA(rows)); ws['!cols']=[{wch:24},{wch:14},{wch:20},{wch:16},{wch:18}]; XLSX.utils.book_append_sheet(wb,ws,date.slice(0,31)); }
+  });
+  const ov=Object.keys(overall).map(n=>({name:n,...overall[n]})).sort((a,b)=>b.totalSeconds-a.totalSeconds);
+  const wsO=XLSX.utils.aoa_to_sheet(buildSummaryAOA(ov)); wsO['!cols']=[{wch:24},{wch:14},{wch:20},{wch:16},{wch:18}];
+  const wsF=XLSX.utils.aoa_to_sheet(flat); wsF['!cols']=[{wch:12},{wch:24},{wch:14},{wch:20},{wch:20},{wch:18},{wch:14},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,wsO,sheetPrefix); XLSX.utils.book_append_sheet(wb,wsF,'Todos os atendimentos');
+  wb.SheetNames=[sheetPrefix,...wb.SheetNames.filter(n=>n!==sheetPrefix&&n!=='Todos os atendimentos'),'Todos os atendimentos'];
+  XLSX.writeFile(wb, `atendimento-${filenameSuffix}.xlsx`);
+}
+function exportAll(){
+  if(!window.XLSX){ flashErr('Módulo XLSX não carregado.'); return; }
+  const dates=Object.keys(allDaysCache).sort();
+  if(!dates.length){ flashErr('Nenhum histórico para exportar.'); return; }
+  exportRangeGeneric(dates, 'historico-completo', 'Resumo geral');
+}
+function exportRange(from,to){
+  if(!window.XLSX){ flashErr('Módulo XLSX não carregado.'); return; }
+  if(!from||!to){ flashErr('Selecione as duas datas do período.'); return; }
+  if(from>to){ flashErr('A data inicial deve ser anterior ou igual à final.'); return; }
+  const dates=Object.keys(allDaysCache).filter(d=>d>=from&&d<=to).sort();
+  if(!dates.length){ flashErr('Nenhum registro nesse período.'); return; }
+  exportRangeGeneric(dates, `${from}_a_${to}`, 'Resumo do período');
+}
+
+// ── CHAMADOS (TICKETS) ────────────────────────────────────────────────────────
+const STATUS_LABEL={aberto:'Aberto', em_atendimento:'Em atendimento', concluido:'Concluído', recusado:'Recusado'};
+function openTicket(){
+  const cat=document.getElementById('ticketCategory').value.trim();
+  const memberId=document.getElementById('ticketMember').value;
+  const desc=document.getElementById('ticketDesc').value.trim();
+  if(!cat){ flashErr('Informe o tipo de problema.'); return; }
+  if(!desc){ flashErr('Descreva o problema na observação.'); return; }
+  const memberName = memberId && teams[currentUser] && teams[currentUser][memberId] ? teams[currentUser][memberId].name : '';
+  const ticket={ supervisor:currentUser, member:memberName, category:cat, description:desc, status:'aberto', createdAt:Date.now(), updatedAt:Date.now() };
+  R('tickets/'+genId()).set(ticket).then(()=>{
+    document.getElementById('ticketCategory').value=''; document.getElementById('ticketDesc').value=''; document.getElementById('ticketMember').value='';
+    selectedCategoryChip=null; renderCategoryChips();
+    flashOk('Chamado enviado ao Suporte TI.');
+  }).catch(()=>flashErr('Erro ao enviar chamado.'));
+}
+document.getElementById('sendTicketBtn').addEventListener('click', openTicket);
+function renderCategoryChips(){
+  const wrap=document.getElementById('categoryChips'); if(!wrap) return;
+  const names=Object.values(categories).map(c=>c.name);
+  wrap.innerHTML = names.map(n=>`<span class="chip${selectedCategoryChip===n?' sel':''}" data-chip="${esc(n)}">${esc(n)}</span>`).join('');
+}
+document.getElementById('categoryChips').addEventListener('click', e=>{
+  const chip=e.target.closest('[data-chip]'); if(!chip) return;
+  selectedCategoryChip=chip.dataset.chip;
+  document.getElementById('ticketCategory').value=selectedCategoryChip;
+  renderCategoryChips();
+});
+function renderTicketMemberSelect(){
+  const sel=document.getElementById('ticketMember'); if(!sel) return;
+  const mine=teams[currentUser]||{};
+  sel.innerHTML='<option value="">— Eu mesmo / não se aplica —</option>' + Object.entries(mine).map(([id,m])=>`<option value="${id}">${esc(m.name)}</option>`).join('');
+}
+
+function ticketActionButtons(t,id){
+  if(currentRole==='ti'){
+    if(t.status==='aberto') return `<button class="btn-add btn-sm" data-tk="accept" data-id="${id}">Aceitar</button><button class="btn-danger" data-tk="reject" data-id="${id}">Recusar</button>`;
+    if(t.status==='em_atendimento' && t.acceptedBy===currentUser) return `<button class="btn-add btn-sm" data-tk="resolve" data-id="${id}">Concluir</button>`;
+    if(t.status==='em_atendimento') return `<span class="empty">Sendo atendido por ${esc(t.acceptedBy)}</span>`;
+  } else {
+    if(t.status==='recusado') return `<button class="btn-sec btn-sm" data-tk="reopen" data-id="${id}">Reabrir chamado</button>`;
+  }
+  return '';
+}
+function ticketCardHTML(id,t){
+  const isTi=currentRole==='ti';
+  let extra='';
+  if(t.status==='recusado' && t.rejectReason) extra += `<div class="ticket-extra"><strong>Motivo da recusa:</strong> ${esc(t.rejectReason)}</div>`;
+  if(t.status==='concluido' && t.solutionNote) extra += `<div class="ticket-extra"><strong>Solução:</strong> ${esc(t.solutionNote)}</div>`;
+  if(t.acceptedBy && (t.status==='em_atendimento'||t.status==='concluido')) extra += `<div class="ticket-extra">Atendido por <strong>${esc(t.acceptedBy)}</strong></div>`;
+  return `<div class="ticket-card status-${t.status}">
+    <div class="ticket-top">
+      <div><div class="ticket-cat">${esc(t.category)}</div><div class="ticket-meta-line">${isTi?`Supervisor: <strong>${esc(t.supervisor)}</strong>${t.member?' · Equipe: '+esc(t.member):''}`:`Aberto em ${fmtDateTimeShort(t.createdAt)}`} ${isTi?'· '+fmtDateTimeShort(t.createdAt):''}</div></div>
+      <span class="ticket-badge badge-${t.status}">${STATUS_LABEL[t.status]}</span>
+    </div>
+    <div class="ticket-desc">${esc(t.description)}</div>
+    ${extra}
+    <div class="ticket-actions">${ticketActionButtons(t,id)}</div>
+  </div>`;
+}
+let pendingTicketAction=null;
+function renderTicketsList(containerId, filterVal){
+  const c=document.getElementById(containerId); if(!c) return;
+  const isTi = containerId==='ticketsListTi';
+  let list=Object.entries(tickets).filter(([id,t])=> isTi ? true : t.supervisor===currentUser );
+  if(filterVal!=='all') list=list.filter(([id,t])=>t.status===filterVal);
+  list.sort((a,b)=>b[1].createdAt-a[1].createdAt);
+  if(!list.length){ c.innerHTML='<p class="empty">Nenhum chamado encontrado.</p>'; return; }
+  c.innerHTML=list.map(([id,t])=>ticketCardHTML(id,t)).join('');
+}
+function renderTicketFilters(containerId, current, isTi){
+  const c=document.getElementById(containerId); if(!c) return;
+  const opts=[['all','Todos'],['aberto','Abertos'],['em_atendimento','Em atendimento'],['concluido','Concluídos'],['recusado','Recusados']];
+  c.innerHTML = opts.map(([v,l])=>`<span class="chip${current===v?' sel':''}" data-filter="${v}" data-target="${containerId}">${l}</span>`).join('');
+}
+document.getElementById('ticketFiltersTi').addEventListener('click', e=>{
+  const chip=e.target.closest('[data-filter]'); if(!chip) return;
+  ticketFilterTi=chip.dataset.filter; renderTicketFilters('ticketFiltersTi',ticketFilterTi,true); renderTicketsList('ticketsListTi',ticketFilterTi);
+});
+document.getElementById('ticketFiltersSup').addEventListener('click', e=>{
+  const chip=e.target.closest('[data-filter]'); if(!chip) return;
+  ticketFilterSup=chip.dataset.filter; renderTicketFilters('ticketFiltersSup',ticketFilterSup,false); renderTicketsList('ticketsListSup',ticketFilterSup);
+});
+document.getElementById('ticketsListTi').addEventListener('click', e=>{
+  const btn=e.target.closest('[data-tk]'); if(!btn) return;
+  const id=btn.dataset.id, action=btn.dataset.tk;
+  if(action==='accept'){ R('tickets/'+id).update({status:'em_atendimento', acceptedBy:currentUser, acceptedAt:Date.now(), updatedAt:Date.now()}); }
+  else if(action==='reject'){ pendingTicketAction=id; document.getElementById('rejectReason').value=''; document.getElementById('rejectModal').style.display='flex'; }
+  else if(action==='resolve'){ pendingTicketAction=id; document.getElementById('resolveNote').value=''; document.getElementById('resolveModal').style.display='flex'; }
+});
+document.getElementById('ticketsListSup').addEventListener('click', e=>{
+  const btn=e.target.closest('[data-tk]'); if(!btn) return;
+  if(btn.dataset.tk==='reopen'){ R('tickets/'+btn.dataset.id).update({status:'aberto', rejectReason:null, acceptedBy:null, acceptedAt:null, updatedAt:Date.now()}); }
+});
+document.getElementById('rejectCloseBtn').addEventListener('click', ()=>{ document.getElementById('rejectModal').style.display='none'; pendingTicketAction=null; });
+document.getElementById('rejectCancelBtn').addEventListener('click', ()=>{ document.getElementById('rejectModal').style.display='none'; pendingTicketAction=null; });
+document.getElementById('rejectConfirmBtn').addEventListener('click', ()=>{
+  if(!pendingTicketAction) return;
+  const reason=document.getElementById('rejectReason').value.trim();
+  if(!reason){ flashErr('Informe o motivo da recusa.'); return; }
+  R('tickets/'+pendingTicketAction).update({status:'recusado', rejectReason:reason, updatedAt:Date.now()});
+  document.getElementById('rejectModal').style.display='none'; pendingTicketAction=null;
+});
+document.getElementById('resolveCloseBtn').addEventListener('click', ()=>{ document.getElementById('resolveModal').style.display='none'; pendingTicketAction=null; });
+document.getElementById('resolveCancelBtn').addEventListener('click', ()=>{ document.getElementById('resolveModal').style.display='none'; pendingTicketAction=null; });
+document.getElementById('resolveConfirmBtn').addEventListener('click', ()=>{
+  if(!pendingTicketAction) return;
+  const note=document.getElementById('resolveNote').value.trim();
+  R('tickets/'+pendingTicketAction).update({status:'concluido', solutionNote:note, resolvedAt:Date.now(), updatedAt:Date.now()});
+  document.getElementById('resolveModal').style.display='none'; pendingTicketAction=null;
+});
+document.getElementById('refreshTicketsBtn').addEventListener('click', ()=>renderTicketsList('ticketsListTi',ticketFilterTi));
+document.getElementById('refreshMyTicketsBtn').addEventListener('click', ()=>renderTicketsList('ticketsListSup',ticketFilterSup));
+
+function updateTicketBadges(){
+  const openCount = Object.values(tickets).filter(t=>t.status==='aberto').length;
+  const b=document.getElementById('ticketOpenBadge'); if(b){ b.style.display=openCount?'inline-block':'none'; b.textContent=openCount; }
+  const my = Object.values(tickets).filter(t=>t.supervisor===currentUser && (t.status==='aberto'||t.status==='em_atendimento')).length;
+  const mb=document.getElementById('myTicketBadge'); if(mb){ mb.style.display=my?'inline-block':'none'; mb.textContent=my; }
+}
+
+// ── MINHA EQUIPE (supervisor gerencia nomes) ──────────────────────────────────
+function renderMyTeam(){
+  const wrap=document.getElementById('myTeamList'); if(!wrap) return;
+  const mine=teams[currentUser]||{};
+  const entries=Object.entries(mine);
+  wrap.innerHTML = entries.length ? entries.map(([id,m])=>`
+    <div class="member-row"><span class="member-row-name">${esc(m.name)}</span><button class="btn-icon danger" data-del-member="${id}" title="Remover">✕</button></div>
+  `).join('') : '<p class="empty">Nenhum integrante cadastrado ainda.</p>';
+  renderTicketMemberSelect();
+}
+document.getElementById('addMemberBtn').addEventListener('click', ()=>{
+  const el=document.getElementById('newMemberName'); const name=el.value.trim();
+  if(!name) return;
+  R('teams/'+currentUser+'/'+genId()).set({name}).then(()=>{ el.value=''; }).catch(()=>flashErr('Erro ao adicionar integrante.'));
+});
+document.getElementById('myTeamList').addEventListener('click', e=>{
+  const btn=e.target.closest('[data-del-member]'); if(!btn) return;
+  R('teams/'+currentUser+'/'+btn.dataset.delMember).remove();
+});
+
+// ── CHAT ──────────────────────────────────────────────────────────────────────
+// Um "thread" por supervisor: chats/{supervisorUsername}/{msgId} = {from, role, text, ts}
+// TI vê a lista de todos os supervisores; Supervisor vê direto sua própria conversa.
+let chatListenerRef=null;
+function renderChatThreads(){
+  const wrap=document.getElementById('chatThreads'); if(!wrap) return;
+  if(currentRole==='sup'){
+    wrap.style.display='none';
+    if(!activeChatThread){ activeChatThread=currentUser; openChatThread(currentUser); }
+    return;
+  }
+  wrap.style.display='';
+  const sups=Object.keys(supLogins);
+  if(!sups.length){ wrap.innerHTML='<p class="empty" style="padding:14px">Nenhum supervisor cadastrado.</p>'; return; }
+  wrap.innerHTML = sups.map(u=>{
+    const unread=chatThreadsUnread[u]||0;
+    return `<div class="chat-thread-item${activeChatThread===u?' sel':''}" data-thread="${esc(u)}">
+      <div class="chat-thread-name">${esc(u)}${unread?`<span class="chat-thread-unread">${unread}</span>`:''}</div>
+      <div class="chat-thread-preview">Clique para abrir a conversa</div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('chatThreads').addEventListener('click', e=>{
+  const item=e.target.closest('[data-thread]'); if(!item) return;
+  openChatThread(item.dataset.thread);
+});
+function openChatThread(supUsername){
+  activeChatThread=supUsername;
+  renderChatThreads();
+  const box=document.getElementById('chatMessages');
+  box.innerHTML='<p class="empty" style="padding:16px">Carregando conversa...</p>';
+  if(chatListenerRef) chatListenerRef.off();
+  chatListenerRef = R('chats/'+supUsername);
+  chatListenerRef.on('value', snap=>{
+    const msgs = snap.val()||{};
+    const list = Object.values(msgs).sort((a,b)=>a.ts-b.ts);
+    if(!list.length){ box.innerHTML='<p class="empty" style="padding:16px">Nenhuma mensagem ainda. Envie a primeira!</p>'; }
+    else{
+      box.innerHTML = list.map(m=>`<div class="chat-bubble ${m.from===currentUser?'mine':'theirs'}">${esc(m.text)}<div class="cb-meta">${esc(m.from)} · ${fmtTimeOnly(m.ts)}</div></div>`).join('');
+    }
+    box.scrollTop = box.scrollHeight;
+  });
+  if(currentRole==='ti') chatThreadsUnread[supUsername]=0;
+  document.getElementById('chatTitle').textContent = currentRole==='ti' ? ('Conversa com '+supUsername) : 'Chat com Suporte TI';
+}
+function sendChatMessage(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();
+  if(!text || !activeChatThread) return;
+  const msg={from:currentUser, role:currentRole, text, ts:Date.now()};
+  R('chats/'+activeChatThread+'/'+genId()).set(msg).then(()=>{ input.value=''; }).catch(()=>flashErr('Erro ao enviar mensagem.'));
+}
+document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+document.getElementById('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendChatMessage(); });
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  ['tabLive','tabTickets','tabReports','tabOpen','tabMyTickets','tabMyTeam','tabChat'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display='none';
+  });
+  const map={live:'tabLive', tickets:'tabTickets', reports:'tabReports', open:'tabOpen', mytickets:'tabMyTickets', myteam:'tabMyTeam', chat:'tabChat'};
+  const el=document.getElementById(map[tab]); if(el) el.style.display='';
+  if(tab==='reports' && !rankLoaded){ rankLoaded=true; loadHistoryDates(); refreshRanking(); renderTicketStats(); }
+  if(tab==='tickets'){ renderTicketFilters('ticketFiltersTi',ticketFilterTi,true); renderTicketsList('ticketsListTi',ticketFilterTi); }
+  if(tab==='mytickets'){ renderTicketFilters('ticketFiltersSup',ticketFilterSup,false); renderTicketsList('ticketsListSup',ticketFilterSup); }
+  if(tab==='myteam'){ renderMyTeam(); }
+  if(tab==='open'){ renderCategoryChips(); renderTicketMemberSelect(); }
+  if(tab==='chat'){ renderChatThreads(); }
+}
+document.querySelectorAll('#tabsTi .tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+document.querySelectorAll('#tabsSup .tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+
+document.getElementById('refreshRankBtn').addEventListener('click',refreshRanking);
+document.getElementById('exportAllBtn').addEventListener('click',exportAll);
+document.getElementById('exportRangeBtn').addEventListener('click',()=>{ exportRange(document.getElementById('rangeFrom').value, document.getElementById('rangeTo').value); });
+
+document.getElementById('addBtn').addEventListener('click',()=>{
+  const inp=document.getElementById('newName'); const name=inp.value.trim(); if(!name) return;
+  inp.value=''; addService(name);
+});
+document.getElementById('newName').addEventListener('keydown',(e)=>{
+  if(e.key!=='Enter') return; e.preventDefault();
+  const inp=e.target; const name=inp.value.trim(); if(!name) return; inp.value=''; addService(name);
+});
+document.getElementById('agentsGrid').addEventListener('click',(e)=>{
+  const btn=e.target.closest('[data-a]'); if(!btn) return;
+  const id=btn.dataset.id; const a=btn.dataset.a;
+  if(a==='edit'){ editingId=id; renderAgents(); setTimeout(()=>{ const el=document.querySelector('.edit-input[data-id="'+id+'"]'); if(el){el.focus();el.select()} },0); return; }
+  if(a==='cancel'){ editingId=null; renderAgents(); return; }
+  if(a==='save'){ const inp=document.querySelector('.edit-input[data-id="'+id+'"]'); const nm=inp?inp.value.trim():''; if(!nm) return; renameService(id,nm); editingId=null; return; }
+  if(a==='del'){
+    if(confirmDel.has(id)){ confirmDel.delete(id); deleteService(id); }
+    else { confirmDel.add(id); renderAgents(); setTimeout(()=>{ if(confirmDel.has(id)){ confirmDel.delete(id); renderAgents(); } },3000); }
+    return;
+  }
+  if(a==='start'){ startSession(id); return; }
+  if(a==='stop'){ stopSession(id); return; }
+});
+document.getElementById('agentsGrid').addEventListener('keydown',(e)=>{
+  if(!e.target.classList.contains('edit-input')) return;
+  if(e.key==='Enter'){ e.preventDefault(); const id=e.target.dataset.id; const nm=e.target.value.trim(); if(!nm) return; renameService(id,nm); editingId=null; renderAgents(); }
+  else if(e.key==='Escape'){ editingId=null; renderAgents(); }
+});
+document.getElementById('historyDates').addEventListener('click',(e)=>{
+  const li=e.target.closest('li[data-date]'); if(!li) return;
+  curDate=li.dataset.date; loadHistoryDates(); renderHistoryDetail(curDate);
+});
+document.getElementById('historyDetail').addEventListener('click',(e)=>{
+  if(e.target.id==='exportDateBtn'&&curDate){ exportDate(curDate); return; }
+  const btn=e.target.closest('[data-action="edit-sess"]');
+  if(btn){ openEditModal(btn.dataset.date, btn.dataset.agent, btn.dataset.skey); }
+});
+
+// ── TICK (relógio + timers ao vivo) ───────────────────────────────────────────
+function tick(){
+  document.getElementById('liveClock').textContent=new Date().toLocaleTimeString('pt-BR');
+  if(!editingId && document.getElementById('tabLive').style.display!=='none') renderAgents();
+  renderSummary();
+}
+
+// ── LISTENERS FIREBASE (fonte única da verdade, tempo real) ──────────────────
+function bindListeners(){
+  if(listenersBound) return; listenersBound=true;
+
+  R('logins/ti').on('value', s=>{ tiLogins=s.val()||{}; renderTeam(); if(document.getElementById('manageModal').style.display==='flex') renderLoginsLists(); populateEditUserSelect(editCtx?allDaysCache[editCtx.date]?.[editCtx.agentId]?.[editCtx.sessKey]?.user:null); });
+  R('logins/sup').on('value', s=>{ supLogins=s.val()||{}; renderTeam(); if(document.getElementById('manageModal').style.display==='flex') renderLoginsLists(); if(currentRole==='ti') renderChatThreads(); });
+  R('categories').on('value', s=>{ categories=s.val()||{}; if(document.getElementById('catModal').style.display==='flex') renderCatList(); renderCategoryChips(); });
+  R('services').on('value', s=>{ services=s.val()||{}; renderAgents(); renderSummary(); });
+  R('active').on('value', s=>{ activeSess=s.val()||{}; renderAgents(); renderSummary(); updatePresenceTasks(); });
+  R('days/'+todayKey()).on('value', s=>{ todayDay=s.val()||{}; renderSummary(); if(curDate===todayKey()){ allDaysCache[todayKey()]=todayDay; renderHistoryDetail(todayKey()); } });
+  R('presence').on('value', s=>{ presence=s.val()||{}; renderTeam(); });
+  R('teams/'+currentUser).on('value', s=>{ teams[currentUser]=s.val()||{}; if(currentRole==='sup'){ renderMyTeam(); renderTicketMemberSelect(); } });
+  if(currentRole==='ti'){
+    R('teams').on('value', s=>{ teams=s.val()||{}; });
+  }
+  R('tickets').on('value', s=>{
+    const prevKeys=Object.keys(tickets);
+    tickets=s.val()||{};
+    updateTicketBadges();
+    if(document.getElementById('tabTickets').style.display!=='none'){ renderTicketsList('ticketsListTi',ticketFilterTi); }
+    if(document.getElementById('tabMyTickets').style.display!=='none'){ renderTicketsList('ticketsListSup',ticketFilterSup); }
+    if(document.getElementById('tabReports').style.display!=='none'){ renderTicketStats(); }
+  });
+
+  // notificações simples de chat não lido (apenas enquanto o app está aberto)
+  R('chats').on('child_changed', snap=>{ handleChatIndexUpdate(snap.key, snap.val()); });
+  R('chats').on('child_added', snap=>{ handleChatIndexUpdate(snap.key, snap.val()); });
+}
+function handleChatIndexUpdate(supUser, msgsObj){
+  const msgs=Object.values(msgsObj||{});
+  if(!msgs.length) return;
+  const last=msgs.sort((a,b)=>b.ts-a.ts)[0];
+  if(last.from===currentUser) return;
+  const chatTabOpen = document.getElementById('tabChat').style.display!=='none';
+  if(currentRole==='ti'){
+    if(!(chatTabOpen && activeChatThread===supUser)){
+      chatThreadsUnread[supUser]=(chatThreadsUnread[supUser]||0)+1;
+      renderChatThreads();
+    }
+  } else if(currentRole==='sup' && supUser===currentUser){
+    if(!chatTabOpen) chatThreadsUnread[supUser]=(chatThreadsUnread[supUser]||0)+1;
+  }
+  updateChatBadges();
+}
+function updateChatBadges(){
+  const total=Object.values(chatThreadsUnread).reduce((a,b)=>a+b,0);
+  const bTi=document.getElementById('chatUnreadBadgeTi'); if(bTi){ bTi.style.display=total&&currentRole==='ti'?'inline-block':'none'; bTi.textContent=total; }
+  const bSup=document.getElementById('chatUnreadBadgeSup'); if(bSup){ const mine=chatThreadsUnread[currentUser]||0; bSup.style.display=mine&&currentRole==='sup'?'inline-block':'none'; bSup.textContent=mine; }
+}
+
+// ── INICIAR APP (pós-login) ───────────────────────────────────────────────────
+function startApp(){
+  document.getElementById('userTag').textContent=currentUser;
+  const roleTag=document.getElementById('roleTag');
+  roleTag.textContent = currentRole==='ti' ? 'Suporte TI' : 'Supervisor';
+  roleTag.classList.toggle('sup', currentRole==='sup');
+  document.getElementById('pageTitle').textContent = currentRole==='ti' ? 'Central de Suporte' : 'Painel do Supervisor';
+  document.getElementById('tabsTi').style.display = currentRole==='ti' ? '' : 'none';
+  document.getElementById('tabsSup').style.display = currentRole==='sup' ? '' : 'none';
+  document.getElementById('catBtn').style.display = currentRole==='ti' ? '' : 'none';
+  switchTab(currentRole==='ti' ? 'live' : 'open');
+
+  R('.info/connected').on('value', s=>{
+    const connected = s.val()===true;
+    document.getElementById('syncDot').classList.toggle('off', !connected);
+    document.getElementById('syncNote').textContent = connected ? 'Online — sincronizado em tempo real' : 'Reconectando...';
+  });
+
+  bindListeners();
+  setPresenceOnline();
+  setInterval(tick,1000);
+  setInterval(heartbeatAndJanitor,10000);
+  heartbeatAndJanitor();
+}
+
+// ── VERIFICAR SESSÃO ATIVA ────────────────────────────────────────────────────
+(function init(){
+  applyTheme();
+  if(!fbReady) return;
+  const saved=sessionStorage.getItem('att:session');
+  if(saved){
+    try{
+      const {u,role}=JSON.parse(saved);
+      R('logins/'+role+'/'+u).once('value').then(snap=>{
+        if(snap.exists()){
+          currentUser=u; currentRole=role;
+          document.getElementById('loginScreen').style.display='none';
+          document.getElementById('mainApp').style.display='block';
+          startApp();
+        } else {
+          sessionStorage.removeItem('att:session');
+        }
+      });
+    }catch(e){ sessionStorage.removeItem('att:session'); }
+  }
+})();
+</script>
+</body>
+</html>
