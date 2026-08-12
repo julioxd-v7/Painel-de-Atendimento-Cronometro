@@ -1,4 +1,4 @@
-# Painel de Atendimento — TifySoluções
+# Painel de Atendimento — Ti fy Soluções
 
 Esse painel eu criei pra organizar o atendimento da nossa equipe de suporte e dar visibilidade real do que está acontecendo, sem precisar ficar perguntando no WhatsApp quem está fazendo o quê.
 
